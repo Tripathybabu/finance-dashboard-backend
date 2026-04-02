@@ -1,9 +1,9 @@
 import http from "node:http";
-import { handleRequest } from "./http/router.js";
-import { createAppContext } from "./context.js";
+import { createAppContext } from "./create-app-context.js";
+import { handleRequest } from "../routes/index.js";
 
-export function createApp(options = {}) {
-  const context = createAppContext(options);
+export async function createApp(options = {}) {
+  const context = await createAppContext(options);
 
   return {
     context,
@@ -13,6 +13,9 @@ export function createApp(options = {}) {
       });
 
       return server.listen(port, callback);
+    },
+    async close() {
+      await context.close();
     }
   };
 }

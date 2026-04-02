@@ -8,14 +8,14 @@ export function extractToken(request) {
   return request.headers["x-auth-token"] || null;
 }
 
-export function authenticate(request, context) {
+export async function authenticate(request, context) {
   const token = extractToken(request);
 
   if (!token) {
     return null;
   }
 
-  return context.store.getUserByToken(token);
+  return context.services.users.getUserByToken(token);
 }
 
 export function requireActiveUser(user) {

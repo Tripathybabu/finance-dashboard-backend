@@ -1,53 +1,87 @@
 # Finance Dashboard Backend
 
-A compact backend implementation for a finance dashboard assessment. It focuses on clean API design, clear role-based behavior, input validation, summary analytics, and lightweight persistence without requiring external packages.
+Backend assessment project for a finance dashboard system using Node.js, PostgreSQL, and a simple MVC structure. The code is intentionally straightforward and practical: enough structure to show backend thinking clearly, without adding extra framework noise.
 
-## Tech Choices
+## Stack
 
-- Runtime: Node.js 24+
-- API style: REST over the built-in `http` module
-- Persistence: JSON file storage in [data/store.json](/c:/Users/DELL/Downloads/finance-dashboard-backend/data/store.json)
-- Authentication: Mock bearer token authentication for local/demo use
-- Tests: Built-in `node:test`
+- Node.js with the built-in `http` module
+- PostgreSQL with the `pg` driver
+- MVC-style folder structure: `models`, `services`, `controllers`, `routes`, `middleware`
+- Built-in `node:test` for integration tests
+- Token-based mock authentication for demo and assessment use
 
-This intentionally avoids third-party dependencies so the project stays easy to review and run in a fresh environment.
+## Project Structure
+
+- [src/app/create-app.js](/c:/Users/DELL/Downloads/finance-dashboard-backend/src/app/create-app.js)
+- [src/app/create-app-context.js](/c:/Users/DELL/Downloads/finance-dashboard-backend/src/app/create-app-context.js)
+- [src/config/database.js](/c:/Users/DELL/Downloads/finance-dashboard-backend/src/config/database.js)
+- [src/database/init.js](/c:/Users/DELL/Downloads/finance-dashboard-backend/src/database/init.js)
+- [src/models/user-model.js](/c:/Users/DELL/Downloads/finance-dashboard-backend/src/models/user-model.js)
+- [src/models/record-model.js](/c:/Users/DELL/Downloads/finance-dashboard-backend/src/models/record-model.js)
+- [src/services/user-service.js](/c:/Users/DELL/Downloads/finance-dashboard-backend/src/services/user-service.js)
+- [src/services/record-service.js](/c:/Users/DELL/Downloads/finance-dashboard-backend/src/services/record-service.js)
+- [src/services/dashboard-service.js](/c:/Users/DELL/Downloads/finance-dashboard-backend/src/services/dashboard-service.js)
+- [src/controllers/users-controller.js](/c:/Users/DELL/Downloads/finance-dashboard-backend/src/controllers/users-controller.js)
+- [src/controllers/records-controller.js](/c:/Users/DELL/Downloads/finance-dashboard-backend/src/controllers/records-controller.js)
+- [src/controllers/dashboard-controller.js](/c:/Users/DELL/Downloads/finance-dashboard-backend/src/controllers/dashboard-controller.js)
+- [src/routes/index.js](/c:/Users/DELL/Downloads/finance-dashboard-backend/src/routes/index.js)
+- [src/middleware/auth.js](/c:/Users/DELL/Downloads/finance-dashboard-backend/src/middleware/auth.js)
 
 ## Features
 
 - User management with roles and active/inactive status
-- Role-based authorization enforced at the backend layer
+- Role-based access control at the middleware layer
 - Financial record CRUD with filtering, search, and pagination
-- Dashboard summary APIs for totals, recent activity, and trends
-- Input validation with useful `422` responses
-- Soft delete behavior for records
+- Dashboard summary APIs for totals, category summaries, trends, and recent activity
+- PostgreSQL schema initialization and seed data on startup
+- Soft delete support for records
+- Request validation with consistent `422` error responses
 
 ## Roles
 
-- `viewer`: can access dashboard analytics only
+- `viewer`: can read dashboard summary endpoints only
 - `analyst`: can read records and dashboard analytics
-- `admin`: full access to users and records
+- `admin`: can manage users and financial records
 
-## Seeded Access Tokens
+## Database Setup
 
-Use these tokens in the `Authorization: Bearer <token>` header:
+1. Create a PostgreSQL database.
+2. Copy [.env.example](/c:/Users/DELL/Downloads/finance-dashboard-backend/.env.example) values into your local environment.
+3. Set either `DATABASE_URL` or the individual `DB_*` variables.
+
+Example:
+
+```bash
+set DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/finance_dashboard
+node src/server.js
+```
+
+On startup the app will:
+
+- connect to PostgreSQL
+- create the `users` and `financial_records` tables if they do not exist
+- seed demo users and records if the database is empty
+
+## Seeded Tokens
+
+Use these in `Authorization: Bearer <token>`:
 
 - `admin-token`
 - `analyst-token`
 - `viewer-token`
 
-Seeded users are written automatically the first time the app starts.
-
-## Getting Started
-
-1. Start the server:
+## Run
 
 ```bash
-node src/server.js
+npm install
+npm start
 ```
 
-2. The server runs on `http://localhost:3000` by default.
+Server default:
 
-3. Health check:
+- `http://localhost:3000`
+
+Health check:
 
 ```bash
 curl http://localhost:3000/health
@@ -61,12 +95,12 @@ curl http://localhost:3000/health
 
 ### Users
 
-- `GET /api/users` admin only
-- `POST /api/users` admin only
-- `GET /api/users/:id` admin only
-- `PATCH /api/users/:id` admin only
+- `GET /api/users`
+- `POST /api/users`
+- `GET /api/users/:id`
+- `PATCH /api/users/:id`
 
-Example create user payload:
+Example payload:
 
 ```json
 {
@@ -79,13 +113,13 @@ Example create user payload:
 
 ### Records
 
-- `GET /api/records` admin and analyst
-- `POST /api/records` admin only
-- `GET /api/records/:id` admin and analyst
-- `PATCH /api/records/:id` admin only
-- `DELETE /api/records/:id` admin only
+- `GET /api/records`
+- `POST /api/records`
+- `GET /api/records/:id`
+- `PATCH /api/records/:id`
+- `DELETE /api/records/:id`
 
-Supported record query parameters:
+Supported query params:
 
 - `type=income|expense`
 - `category=Marketing`
@@ -95,7 +129,7 @@ Supported record query parameters:
 - `page=1`
 - `pageSize=10`
 
-Example create record payload:
+Example payload:
 
 ```json
 {
@@ -113,14 +147,9 @@ Example create record payload:
 - `GET /api/dashboard/trends?granularity=monthly|weekly`
 - `GET /api/dashboard/recent-activity?limit=5`
 
-Optional dashboard range filters:
+## Response Format
 
-- `startDate=2026-03-01`
-- `endDate=2026-03-31`
-
-## Response Shape
-
-Successful responses return:
+Success:
 
 ```json
 {
@@ -128,7 +157,7 @@ Successful responses return:
 }
 ```
 
-Errors return:
+Validation error:
 
 ```json
 {
@@ -144,24 +173,21 @@ Errors return:
 }
 ```
 
-## Design Notes
+## Notes
 
-- The project uses a small service layer to separate business logic from HTTP routing.
-- Records are soft deleted by setting `deletedAt`, which keeps analytics predictable and avoids hard removal.
-- Mock token auth keeps the assignment focused on backend design rather than auth plumbing.
-- JSON persistence is a deliberate simplification. In a production version, this would likely move to PostgreSQL or SQLite with migrations and indexes.
+- Authentication is simplified with static bearer tokens because the assessment is focused on backend design, roles, validation, and data handling.
+- SQL aggregation is used for dashboard analytics so the summary endpoints are not just looping over in-memory data.
+- The code tries to stay at a realistic mid-level style: small files, explicit queries, readable service methods, and no heavy abstractions.
 
 ## Testing
 
-Run:
+Integration tests need a PostgreSQL database.
+
+Example:
 
 ```bash
-node --test
+set TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/finance_dashboard_test
+npm test
 ```
 
-The tests cover:
-
-- role restrictions
-- record creation and filtering
-- validation errors
-- user creation
+If `TEST_DATABASE_URL` is not provided, the tests are skipped.

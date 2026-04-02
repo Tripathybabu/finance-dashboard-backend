@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { assertValid, validateRecordInput } from "./validation.js";
 
 function notFound() {
@@ -6,64 +7,32 @@ function notFound() {
   throw error;
 }
 
-function applyFilters(records, query) {
-  return records.filter((record) => {
-    if (query.type && record.type !== query.type) {
-      return false;
-    }
-
-    if (query.category && record.category.toLowerCase() !== query.category.toLowerCase()) {
-      return false;
-    }
-
-    if (query.startDate && record.date < query.startDate) {
-      return false;
-    }
-
-    if (query.endDate && record.date > query.endDate) {
-      return false;
-    }
-
-    if (query.search) {
-      const searchTerm = query.search.toLowerCase();
-      const haystack = `${record.category} ${record.notes}`.toLowerCase();
-      if (!haystack.includes(searchTerm)) {
-        return false;
-      }
-    }
-
-    return true;
-  });
-}
-
-export function createRecordService(store) {
+export function createRecordService(recordModel) {
   return {
-    listRecords(query = {}) {
-      const page = Math.max(Number(query.page || 1), 1);
-      const pageSize = Math.min(Math.max(Number(query.pageSize || 10), 1), 100);
-      const filtered = applyFilters(store.getRecords(), query);
-      const startIndex = (page - 1) * pageSize;
+    async listRecords(query = {}) {
+      const result = await recordModel.findAll(query);
 
       return {
-        data: filtered.slice(startIndex, startIndex + pageSize),
+        data: result.rows,
         meta: {
-          total: filtered.length,
-          page,
-          pageSize,
-          totalPages: Math.max(Math.ceil(filtered.length / pageSize), 1)
+          total: result.total,
+          page: result.page,
+          pageSize: result.pageSize,
+          totalPages: Math.max(Math.ceil(result.total / result.pageSize), 1)
         }
       };
     },
-    getRecord(id) {
-      const record = store.getRecordById(id);
+    async getRecord(id) {
+      const record = await recordModel.findById(id);
       if (!record) {
         notFound();
       }
       return record;
     },
-    createRecord(payload, user) {
+    async createRecord(payload, user) {
       assertValid(validateRecordInput(payload, "create"));
-      return store.createRecord({
+      return recordModel.create({
+        id: randomUUID(),
         amount: payload.amount,
         type: payload.type,
         category: payload.category.trim(),
@@ -72,14 +41,14 @@ export function createRecordService(store) {
         createdBy: user.id
       });
     },
-    updateRecord(id, payload) {
+    async updateRecord(id, payload) {
       assertValid(validateRecordInput(payload, "update"));
-      const current = store.getRecordById(id);
+      const current = await recordModel.findById(id);
       if (!current) {
         notFound();
       }
 
-      return store.updateRecord(id, {
+      return recordModel.update(id, {
         ...("amount" in payload ? { amount: payload.amount } : {}),
         ...("type" in payload ? { type: payload.type } : {}),
         ...("category" in payload ? { category: payload.category.trim() } : {}),
@@ -87,8 +56,8 @@ export function createRecordService(store) {
         ...("notes" in payload ? { notes: payload.notes?.trim() || "" } : {})
       });
     },
-    deleteRecord(id) {
-      const deleted = store.deleteRecord(id);
+    async deleteRecord(id) {
+      const deleted = await recordModel.softDelete(id);
       if (!deleted) {
         notFound();
       }

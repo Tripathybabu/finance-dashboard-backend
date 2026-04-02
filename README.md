@@ -70,6 +70,12 @@ Use these in `Authorization: Bearer <token>`:
 - `analyst-token`
 - `viewer-token`
 
+## Demo Login Credentials
+
+- `admin@finance.local` / `Admin@123`
+- `analyst@finance.local` / `Analyst@123`
+- `viewer@finance.local` / `Viewer@123`
+
 ## Run
 
 ```bash
@@ -87,10 +93,23 @@ Health check:
 curl http://localhost:3000/health
 ```
 
+Swagger docs:
+
+```bash
+http://localhost:3000/docs
+```
+
+OpenAPI JSON:
+
+```bash
+http://localhost:3000/swagger.json
+```
+
 ## API Overview
 
 ### Auth
 
+- `POST /api/auth/login`
 - `GET /api/auth/me`
 
 ### Users

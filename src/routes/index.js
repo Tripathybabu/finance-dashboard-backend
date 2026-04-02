@@ -1,4 +1,5 @@
 import { readJsonBody } from "../lib/http/read-json-body.js";
+import { createOpenApiSpec, getSwaggerHtml } from "../docs/openapi.js";
 import { sendError, sendJson } from "../lib/http/send-response.js";
 import { authenticate } from "../middleware/auth.js";
 import { handleAuthRoutes } from "./auth-routes.js";
@@ -24,7 +25,7 @@ async function dispatchApiRequest(request, response, context, url, segments, use
     return;
   }
 
-  if (await handleAuthRoutes(request, response, context, url, segments, user)) {
+  if (await handleAuthRoutes(request, response, context, url, segments, user, requestBody)) {
     return;
   }
 
@@ -51,7 +52,6 @@ export async function handleRequest(request, response, context) {
   try {
     const url = parseUrl(request);
     const segments = getPathSegments(url);
-    const user = await authenticate(request, context);
 
     if (segments.length === 1 && segments[0] === "health") {
       sendJson(response, 200, {
@@ -60,6 +60,21 @@ export async function handleRequest(request, response, context) {
       });
       return;
     }
+
+    if (request.method === "GET" && segments.length === 1 && segments[0] === "swagger.json") {
+      sendJson(response, 200, createOpenApiSpec());
+      return;
+    }
+
+    if (request.method === "GET" && segments.length === 1 && segments[0] === "docs") {
+      response.writeHead(200, {
+        "Content-Type": "text/html; charset=utf-8"
+      });
+      response.end(getSwaggerHtml());
+      return;
+    }
+
+    const user = await authenticate(request, context);
 
     if (segments[0] !== "api") {
       throw notFoundError();

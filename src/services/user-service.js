@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { assertValid, validateUserInput } from "./validation.js";
 
 function withSafeFields(user) {
@@ -6,13 +6,39 @@ function withSafeFields(user) {
     return null;
   }
 
-  const { token, created_at, updated_at, ...safeUser } = user;
+  const { token, password_hash, created_at, updated_at, ...safeUser } = user;
 
   return {
     ...safeUser,
     createdAt: user.createdAt || created_at,
     updatedAt: user.updatedAt || updated_at
   };
+}
+
+function hashPassword(password, salt = randomBytes(16).toString("hex")) {
+  const derivedKey = scryptSync(password, salt, 64).toString("hex");
+  return `${salt}:${derivedKey}`;
+}
+
+function verifyPassword(password, passwordHash) {
+  if (!passwordHash) {
+    return false;
+  }
+
+  const [salt, storedKey] = passwordHash.split(":");
+
+  if (!salt || !storedKey) {
+    return false;
+  }
+
+  const derivedKey = scryptSync(password, salt, 64);
+  const storedBuffer = Buffer.from(storedKey, "hex");
+
+  if (storedBuffer.length !== derivedKey.length) {
+    return false;
+  }
+
+  return timingSafeEqual(storedBuffer, derivedKey);
 }
 
 export function createUserService(userModel) {
@@ -52,6 +78,7 @@ export function createUserService(userModel) {
         id: payload.id || randomUUID(),
         name: payload.name.trim(),
         email: normalizedEmail,
+        passwordHash: "password" in payload ? hashPassword(payload.password) : null,
         role: payload.role,
         status: payload.status || "active",
         token: payload.token || randomUUID()
@@ -86,11 +113,48 @@ export function createUserService(userModel) {
       const updatedUser = await userModel.update(id, {
         ...("name" in payload ? { name: payload.name.trim() } : {}),
         ...("email" in payload ? { email: payload.email.trim().toLowerCase() } : {}),
+        ...("password" in payload ? { passwordHash: hashPassword(payload.password) } : {}),
         ...("role" in payload ? { role: payload.role } : {}),
         ...("status" in payload ? { status: payload.status } : {})
       });
 
       return withSafeFields(updatedUser);
+    },
+    async login(payload) {
+      const email = payload.email?.trim().toLowerCase();
+      const password = payload.password || "";
+
+      if (!email || !password) {
+        const error = new Error("Email and password are required.");
+        error.statusCode = 422;
+        error.details = [
+          ...(!email ? [{ field: "email", message: "Email is required." }] : []),
+          ...(!password ? [{ field: "password", message: "Password is required." }] : [])
+        ];
+        throw error;
+      }
+
+      const user = await userModel.findByEmail(email);
+
+      if (!user || !verifyPassword(password, user.password_hash)) {
+        const error = new Error("Invalid email or password.");
+        error.statusCode = 401;
+        throw error;
+      }
+
+      if (user.status !== "active") {
+        const error = new Error("Your account is inactive.");
+        error.statusCode = 403;
+        throw error;
+      }
+
+      const accessToken = randomUUID();
+      const authenticatedUser = await userModel.updateToken(user.id, accessToken);
+
+      return {
+        user: withSafeFields(authenticatedUser),
+        accessToken
+      };
     }
   };
 }

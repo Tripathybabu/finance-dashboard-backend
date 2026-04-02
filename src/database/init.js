@@ -1,4 +1,10 @@
+import { scryptSync, randomBytes } from "node:crypto";
 import { seedRecords, seedUsers } from "./seed-data.js";
+
+function hashPassword(password, salt = randomBytes(16).toString("hex")) {
+  const derivedKey = scryptSync(password, salt, 64).toString("hex");
+  return `${salt}:${derivedKey}`;
+}
 
 async function createSchema(pool) {
   await pool.query(`
@@ -6,12 +12,18 @@ async function createSchema(pool) {
       id TEXT PRIMARY KEY,
       name VARCHAR(120) NOT NULL,
       email VARCHAR(160) NOT NULL UNIQUE,
+      password_hash VARCHAR(255),
       role VARCHAR(20) NOT NULL CHECK (role IN ('viewer', 'analyst', 'admin')),
       status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
       token VARCHAR(160) NOT NULL UNIQUE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+  `);
+
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);
   `);
 
   await pool.query(`
@@ -49,11 +61,32 @@ async function seedUsersTable(pool) {
   for (const user of seedUsers) {
     await pool.query(
       `
-        INSERT INTO users (id, name, email, role, status, token)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO users (id, name, email, password_hash, role, status, token)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         ON CONFLICT (id) DO NOTHING;
       `,
-      [user.id, user.name, user.email, user.role, user.status, user.token]
+      [
+        user.id,
+        user.name,
+        user.email,
+        hashPassword(user.password),
+        user.role,
+        user.status,
+        user.token
+      ]
+    );
+  }
+}
+
+async function backfillSeedUserPasswords(pool) {
+  for (const user of seedUsers) {
+    await pool.query(
+      `
+        UPDATE users
+        SET password_hash = COALESCE(password_hash, $2)
+        WHERE email = $1;
+      `,
+      [user.email, hashPassword(user.password)]
     );
   }
 }
@@ -81,6 +114,7 @@ async function seedRecordsTable(pool) {
 
 export async function initializeDatabase(pool, options = {}) {
   await createSchema(pool);
+  await backfillSeedUserPasswords(pool);
 
   if (options.seed === false) {
     return;

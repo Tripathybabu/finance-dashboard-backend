@@ -3,6 +3,7 @@ export const seedUsers = [
     id: "user-admin",
     name: "Ada Admin",
     email: "admin@finance.local",
+    password: "Admin@123",
     role: "admin",
     status: "active",
     token: "admin-token"
@@ -11,6 +12,7 @@ export const seedUsers = [
     id: "user-analyst",
     name: "Nina Analyst",
     email: "analyst@finance.local",
+    password: "Analyst@123",
     role: "analyst",
     status: "active",
     token: "analyst-token"
@@ -19,6 +21,7 @@ export const seedUsers = [
     id: "user-viewer",
     name: "Victor Viewer",
     email: "viewer@finance.local",
+    password: "Viewer@123",
     role: "viewer",
     status: "active",
     token: "viewer-token"

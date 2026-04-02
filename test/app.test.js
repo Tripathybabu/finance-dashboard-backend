@@ -32,6 +32,7 @@ async function startTestServer() {
   const baseUrl = `http://127.0.0.1:${address.port}`;
 
   return {
+    baseUrl,
     async request(path, options = {}) {
       const response = await fetch(`${baseUrl}${path}`, options);
       const contentType = response.headers.get("content-type") || "";
@@ -47,6 +48,67 @@ async function startTestServer() {
     }
   };
 }
+
+test(
+  "swagger endpoints are available without authentication",
+  { skip: !testDatabaseUrl },
+  async () => {
+    const api = await startTestServer();
+
+    try {
+      const specResult = await api.request("/swagger.json");
+
+      assert.equal(specResult.response.status, 200);
+      assert.equal(specResult.data.openapi, "3.0.3");
+      assert.ok(specResult.data.paths["/api/records"]);
+
+      const docsResponse = await fetch(`${api.baseUrl}/docs`);
+      const docsHtml = await docsResponse.text();
+
+      assert.equal(docsResponse.status, 200);
+      assert.match(docsHtml, /SwaggerUIBundle/);
+    } finally {
+      await api.close();
+    }
+  }
+);
+
+test(
+  "login returns a token that can access authenticated endpoints",
+  { skip: !testDatabaseUrl },
+  async () => {
+    const api = await startTestServer();
+
+    try {
+      const loginResult = await api.request("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          email: "admin@finance.local",
+          password: "Admin@123"
+        })
+      });
+
+      assert.equal(loginResult.response.status, 200);
+      assert.equal(loginResult.data.data.user.email, "admin@finance.local");
+      assert.ok(loginResult.data.data.accessToken);
+      assert.notEqual(loginResult.data.data.accessToken, "admin-token");
+
+      const meResult = await api.request("/api/auth/me", {
+        headers: {
+          Authorization: `Bearer ${loginResult.data.data.accessToken}`
+        }
+      });
+
+      assert.equal(meResult.response.status, 200);
+      assert.equal(meResult.data.data.email, "admin@finance.local");
+    } finally {
+      await api.close();
+    }
+  }
+);
 
 test(
   "viewer can access dashboard summary but cannot create records",

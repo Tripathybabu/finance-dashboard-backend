@@ -78,6 +78,74 @@ export function validateRecordInput(payload, mode = "create") {
   return errors;
 }
 
+export function validateRecordQuery(query = {}) {
+  const errors = [];
+
+  if ("type" in query && query.type && !recordTypes.includes(query.type)) {
+    pushError(errors, "type", `Type must be one of: ${recordTypes.join(", ")}.`);
+  }
+
+  if ("startDate" in query && query.startDate && !isValidDate(query.startDate)) {
+    pushError(errors, "startDate", "Start date must use YYYY-MM-DD format.");
+  }
+
+  if ("endDate" in query && query.endDate && !isValidDate(query.endDate)) {
+    pushError(errors, "endDate", "End date must use YYYY-MM-DD format.");
+  }
+
+  if (
+    query.startDate &&
+    query.endDate &&
+    isValidDate(query.startDate) &&
+    isValidDate(query.endDate) &&
+    query.startDate > query.endDate
+  ) {
+    pushError(errors, "dateRange", "Start date must be before or equal to end date.");
+  }
+
+  if ("page" in query && query.page) {
+    const page = Number(query.page);
+
+    if (!Number.isInteger(page) || page < 1) {
+      pushError(errors, "page", "Page must be an integer greater than or equal to 1.");
+    }
+  }
+
+  if ("pageSize" in query && query.pageSize) {
+    const pageSize = Number(query.pageSize);
+
+    if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) {
+      pushError(errors, "pageSize", "Page size must be an integer between 1 and 100.");
+    }
+  }
+
+  return errors;
+}
+
+export function validateTrendQuery(query = {}) {
+  const errors = validateRecordQuery(query);
+
+  if ("granularity" in query && query.granularity && !["monthly", "weekly"].includes(query.granularity)) {
+    pushError(errors, "granularity", "Granularity must be either monthly or weekly.");
+  }
+
+  return errors;
+}
+
+export function validateRecentActivityQuery(query = {}) {
+  const errors = [];
+
+  if ("limit" in query && query.limit) {
+    const limit = Number(query.limit);
+
+    if (!Number.isInteger(limit) || limit < 1 || limit > 20) {
+      pushError(errors, "limit", "Limit must be an integer between 1 and 20.");
+    }
+  }
+
+  return errors;
+}
+
 export function assertValid(errors) {
   if (errors.length === 0) {
     return;

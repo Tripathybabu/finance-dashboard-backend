@@ -228,3 +228,93 @@ test(
     }
   }
 );
+
+test(
+  "invalid record and dashboard queries return 422",
+  { skip: !testDatabaseUrl },
+  async () => {
+    const api = await startTestServer();
+
+    try {
+      const invalidRecordsResult = await api.request("/api/records?page=0&type=profit", {
+        headers: { Authorization: "Bearer analyst-token" }
+      });
+
+      assert.equal(invalidRecordsResult.response.status, 422);
+      assert.ok(Array.isArray(invalidRecordsResult.data.error.details));
+
+      const invalidTrendsResult = await api.request(
+        "/api/dashboard/trends?granularity=daily&startDate=2026-04-10&endDate=2026-04-01",
+        {
+          headers: { Authorization: "Bearer analyst-token" }
+        }
+      );
+
+      assert.equal(invalidTrendsResult.response.status, 422);
+      assert.ok(Array.isArray(invalidTrendsResult.data.error.details));
+
+      const invalidRecentActivityResult = await api.request(
+        "/api/dashboard/recent-activity?limit=99",
+        {
+          headers: { Authorization: "Bearer viewer-token" }
+        }
+      );
+
+      assert.equal(invalidRecentActivityResult.response.status, 422);
+      assert.ok(Array.isArray(invalidRecentActivityResult.data.error.details));
+    } finally {
+      await api.close();
+    }
+  }
+);
+
+test(
+  "inactive users are blocked from authenticated access",
+  { skip: !testDatabaseUrl },
+  async () => {
+    const api = await startTestServer();
+
+    try {
+      const createUserResult = await api.request("/api/users", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer admin-token",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          name: "Ivy Inactive",
+          email: "ivy@finance.local",
+          password: "Ivy@12345",
+          role: "viewer",
+          status: "active"
+        })
+      });
+
+      assert.equal(createUserResult.response.status, 201);
+
+      const updateUserResult = await api.request(`/api/users/${createUserResult.data.data.id}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: "Bearer admin-token",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          status: "inactive"
+        })
+      });
+
+      assert.equal(updateUserResult.response.status, 200);
+      assert.equal(updateUserResult.data.data.status, "inactive");
+
+      const meResult = await api.request("/api/auth/me", {
+        headers: {
+          Authorization: `Bearer ${createUserResult.data.data.accessToken}`
+        }
+      });
+
+      assert.equal(meResult.response.status, 403);
+    } finally {
+      await api.close();
+    }
+  }
+);

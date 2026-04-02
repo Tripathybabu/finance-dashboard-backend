@@ -358,17 +358,15 @@ export function createOpenApiSpec() {
                 type: "object",
                 properties: {
                   category: { type: "string", example: "Services" },
-                  type: {
-                    type: "string",
-                    enum: ["income", "expense"],
-                    example: "income"
-                  },
-                  total: { type: "number", example: 3200 }
+                  income: { type: "number", example: 3200 },
+                  expense: { type: "number", example: 450 },
+                  net: { type: "number", example: 2750 }
                 },
-                required: ["category", "type", "total"]
+                required: ["category", "income", "expense", "net"]
               }
             }
-          }
+          },
+          required: ["totalIncome", "totalExpenses", "netBalance", "recordCount", "categoryTotals"]
         },
         DashboardSummaryResponse: {
           type: "object",
@@ -381,13 +379,11 @@ export function createOpenApiSpec() {
           type: "object",
           properties: {
             period: { type: "string", example: "2026-03" },
-            type: {
-              type: "string",
-              enum: ["income", "expense"],
-              example: "income"
-            },
-            total: { type: "number", example: 2400 }
-          }
+            income: { type: "number", example: 2400 },
+            expense: { type: "number", example: 1100 },
+            net: { type: "number", example: 1300 }
+          },
+          required: ["period", "income", "expense", "net"]
         },
         DashboardTrendsResponse: {
           type: "object",
@@ -782,6 +778,33 @@ export function createOpenApiSpec() {
           tags: ["Dashboard"],
           summary: "Get dashboard summary",
           security: [{ bearerAuth: [] }, { tokenHeader: [] }],
+          parameters: [
+            {
+              name: "type",
+              in: "query",
+              schema: { type: "string", enum: ["income", "expense"] }
+            },
+            {
+              name: "category",
+              in: "query",
+              schema: { type: "string" }
+            },
+            {
+              name: "startDate",
+              in: "query",
+              schema: { type: "string", format: "date" }
+            },
+            {
+              name: "endDate",
+              in: "query",
+              schema: { type: "string", format: "date" }
+            },
+            {
+              name: "search",
+              in: "query",
+              schema: { type: "string" }
+            }
+          ],
           responses: {
             200: {
               description: "Summary totals and category rollups.",
@@ -802,6 +825,31 @@ export function createOpenApiSpec() {
           summary: "Get dashboard trends",
           security: [{ bearerAuth: [] }, { tokenHeader: [] }],
           parameters: [
+            {
+              name: "type",
+              in: "query",
+              schema: { type: "string", enum: ["income", "expense"] }
+            },
+            {
+              name: "category",
+              in: "query",
+              schema: { type: "string" }
+            },
+            {
+              name: "startDate",
+              in: "query",
+              schema: { type: "string", format: "date" }
+            },
+            {
+              name: "endDate",
+              in: "query",
+              schema: { type: "string", format: "date" }
+            },
+            {
+              name: "search",
+              in: "query",
+              schema: { type: "string" }
+            },
             {
               name: "granularity",
               in: "query",

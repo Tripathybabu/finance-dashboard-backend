@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { assertValid, validateRecordInput } from "./validation.js";
+import { assertValid, validateRecordInput, validateRecordQuery } from "./validation.js";
 
 function notFound() {
   const error = new Error("Financial record not found.");
@@ -10,6 +10,8 @@ function notFound() {
 export function createRecordService(recordModel) {
   return {
     async listRecords(query = {}) {
+      assertValid(validateRecordQuery(query));
+
       const result = await recordModel.findAll(query);
 
       return {
